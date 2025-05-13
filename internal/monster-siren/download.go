@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	ayfile "github.com/AyakuraYuki/go-aybox/file"
+	"github.com/jedib0t/go-pretty/v6/progress"
 )
 
 const saveTo = `./monster-siren`
@@ -51,8 +53,10 @@ func (m *MonsterSiren) saveInfoFile(album *Album, infoPath string) {
 }
 
 func (m *MonsterSiren) DownloadTracks() (err error) {
-	go m.progress.Render()
 	defer m.progress.Stop()
+	defer m.pool.Release()
+
+	go m.progress.Render()
 
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -66,7 +70,7 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 	albums := m.Albums()
 	albumTracker := m.newTracker(fmt.Sprintf("下载塞壬唱片曲库，专辑数：%d", len(albums)), int64(len(albums)))
 
-	for _, album := range albums {
+	for albumIndex, album := range albums {
 		album = m.Album(album.Cid)
 		if !album.IsExist() {
 			log.Printf("cannot get detail of album: [%s] %s", album.Cid, album.Name)
@@ -80,7 +84,8 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 		m.progress.SetPinnedMessages(fmt.Sprintf(">>> 下载中的专辑：《%s》", album.Name))
 		songTracker := m.newTracker(fmt.Sprintf("下载专辑：《%s》（曲数：%d）", album.Name, len(album.Songs)), int64(len(album.Songs)))
 
-		secondPath := filepath.Join(firstPath, album.FilenamifyName())
+		albumNo := len(albums) - albumIndex
+		secondPath := filepath.Join(firstPath, fmt.Sprintf("%03d - %s", albumNo, album.FilenamifyName()))
 		_ = os.MkdirAll(secondPath, os.ModePerm)
 
 		infoPath := filepath.Join(secondPath, "info.txt")
@@ -88,31 +93,23 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 			m.saveInfoFile(album, infoPath) // save album info
 		}
 
+		var wg sync.WaitGroup
 		for index, song := range album.Songs {
-			if !song.IsExist() {
-				songTracker.Increment(1)
-				continue
-			}
-
-			ext := filepath.Ext(song.SourceUrl)
-			songName := fmt.Sprintf("%02d.%s%s", index+1, song.FilenamifyName(), ext)
-			lyricName := fmt.Sprintf("%02d.%s.lrc", index+1, song.FilenamifyName())
-			if song.SourceUrl != "" {
-				_ = m.downloadURL(song.SourceUrl, secondPath, songName)
-			}
-			if song.LyricUrl != "" {
-				_ = m.downloadURL(song.LyricUrl, secondPath, lyricName)
-			}
-
-			songTracker.Increment(1)
+			trackNo := index + 1
+			song := song
+			wg.Add(1)
+			_ = m.pool.Submit(m.downloadSongsTaskWrapper(song, trackNo, secondPath, songTracker, &wg))
 		}
+		wg.Wait()
 
 		if album.CoverUrl != "" {
 			ext := filepath.Ext(album.CoverUrl)
+			m.progress.SetPinnedMessages(fmt.Sprintf(">>> 下载专辑封面：《%s》", album.Name))
 			_ = m.downloadURL(album.CoverUrl, secondPath, fmt.Sprintf("专辑封面%s", ext))
 		}
 		if album.CoverDeUrl != "" {
 			ext := filepath.Ext(album.CoverDeUrl)
+			m.progress.SetPinnedMessages(fmt.Sprintf(">>> 下载封面：《%s》", album.Name))
 			_ = m.downloadURL(album.CoverDeUrl, secondPath, fmt.Sprintf("封面%s", ext))
 		}
 
@@ -121,6 +118,29 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 	}
 
 	return nil
+}
+
+func (m *MonsterSiren) downloadSongsTaskWrapper(song *Song, trackNo int, path string, tracker *progress.Tracker, wg *sync.WaitGroup) func() {
+	return func() {
+		defer wg.Done()
+
+		if !song.IsExist() {
+			tracker.Increment(1)
+			return
+		}
+
+		ext := filepath.Ext(song.SourceUrl)
+		songName := fmt.Sprintf("%02d.%s%s", trackNo, song.FilenamifyName(), ext)
+		lyricName := fmt.Sprintf("%02d.%s.lrc", trackNo, song.FilenamifyName())
+		if song.SourceUrl != "" {
+			_ = m.downloadURL(song.SourceUrl, path, songName)
+		}
+		if song.LyricUrl != "" {
+			_ = m.downloadURL(song.LyricUrl, path, lyricName)
+		}
+
+		tracker.Increment(1)
+	}
 }
 
 func saveFile(path, text string) {

@@ -9,7 +9,7 @@ import (
 
 var JSON = jsoniter.ConfigCompatibleWithStandardLibrary
 
-func RegisterFuzzyDecoders() {
+func init() {
 	extra.RegisterFuzzyDecoders()
 }
 

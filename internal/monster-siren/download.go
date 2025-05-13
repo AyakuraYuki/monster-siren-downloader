@@ -21,7 +21,9 @@ func (m *MonsterSiren) downloadURL(mURL, path, name string) (err error) {
 		return nil // 跳过已下载的文件
 	}
 
-	reply, err := m.client.R().SetOutput(absPath).Get(mURL)
+	tmpPath := absPath + ".tmp"
+	_ = os.Remove(tmpPath)
+	reply, err := m.client.R().SetOutput(tmpPath).Get(mURL)
 	if err != nil {
 		m.progress.Log("failed to download url %q, err: %v", mURL, err)
 		return err
@@ -30,6 +32,7 @@ func (m *MonsterSiren) downloadURL(mURL, path, name string) (err error) {
 		m.progress.Log("failed to download url %q, err: %v", mURL, reply.Error())
 		return fmt.Errorf("reply error: (code %d) %v", reply.StatusCode(), reply.Error())
 	}
+	_ = os.Rename(tmpPath, absPath)
 
 	return nil
 }

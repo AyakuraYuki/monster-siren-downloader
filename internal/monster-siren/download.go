@@ -3,7 +3,6 @@ package monster_siren
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,11 +22,11 @@ func (m *MonsterSiren) downloadURL(mURL, path, name string) (err error) {
 
 	reply, err := m.client.R().SetOutput(absPath).Get(mURL)
 	if err != nil {
-		log.Printf("failed to download url %q, err: %v", mURL, err)
+		m.progress.Log("failed to download url %q, err: %v", mURL, err)
 		return err
 	}
 	if reply.IsError() {
-		log.Printf("failed to download url %q, err: %v", mURL, reply.Error())
+		m.progress.Log("failed to download url %q, err: %v", mURL, reply.Error())
 		return fmt.Errorf("reply error: (code %d) %v", reply.StatusCode(), reply.Error())
 	}
 
@@ -60,7 +59,7 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 
 	pwd, err := os.Getwd()
 	if err != nil {
-		log.Printf("cannot get workdir: %v", err)
+		m.progress.Log("cannot get workdir: %v", err)
 		return err
 	}
 
@@ -73,7 +72,8 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 	for albumIndex, album := range albums {
 		album = m.Album(album.Cid)
 		if !album.IsExist() {
-			log.Printf("cannot get detail of album: [%s] %s", album.Cid, album.Name)
+			albumTracker.Increment(1)
+			m.progress.Log("cannot get detail of album: [%s] %s", album.Cid, album.Name)
 			continue
 		}
 

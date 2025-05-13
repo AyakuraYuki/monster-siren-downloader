@@ -42,7 +42,7 @@ func New(versions ...string) *MonsterSiren {
 		})
 
 	pw := progress.NewWriter()
-	pw.SetAutoStop(true)
+	pw.SetAutoStop(false)
 	pw.SetMessageLength(120)
 	pw.SetStyle(progress.StyleBlocks)
 	pw.SetUpdateFrequency(100 * time.Millisecond)

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	ayfile "github.com/AyakuraYuki/go-aybox/file"
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -54,7 +55,6 @@ func (m *MonsterSiren) saveInfoFile(album *Album, infoPath string) {
 func (m *MonsterSiren) DownloadTracks() (err error) {
 	defer m.progress.Stop()
 	defer m.pool.Release()
-
 	go m.progress.Render()
 
 	pwd, err := os.Getwd()
@@ -67,13 +67,14 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 	_ = os.MkdirAll(firstPath, os.ModePerm)
 
 	albums := m.Albums()
-	albumTracker := m.newTracker(fmt.Sprintf("下载塞壬唱片曲库，专辑数：%d", len(albums)), int64(len(albums)))
+	tracker := m.newTracker(fmt.Sprintf("下载塞壬唱片曲库，专辑数：%d", len(albums)), int64(len(albums)))
+	tracker.Start()
 
 	for albumIndex, album := range albums {
 		album = m.Album(album.Cid)
 		if !album.IsExist() {
-			albumTracker.Increment(1)
 			m.progress.Log("cannot get detail of album: [%s] %s", album.Cid, album.Name)
+			tracker.Increment(1)
 			continue
 		}
 
@@ -83,6 +84,7 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 
 		m.progress.SetPinnedMessages(fmt.Sprintf(">>> 下载中的专辑：《%s》", album.Name))
 		songTracker := m.newTracker(fmt.Sprintf("下载专辑：《%s》（曲数：%d）", album.Name, len(album.Songs)), int64(len(album.Songs)))
+		songTracker.Start()
 
 		albumNo := len(albums) - albumIndex
 		secondPath := filepath.Join(firstPath, fmt.Sprintf("%03d - %s", albumNo, album.FilenamifyName()))
@@ -101,6 +103,7 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 			_ = m.pool.Submit(m.downloadSongsTaskWrapper(song, trackNo, secondPath, songTracker, &wg))
 		}
 		wg.Wait()
+		songTracker.MarkAsDone()
 
 		if album.CoverUrl != "" {
 			ext := filepath.Ext(album.CoverUrl)
@@ -113,10 +116,12 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 			_ = m.downloadURL(album.CoverDeUrl, secondPath, fmt.Sprintf("封面%s", ext))
 		}
 
-		albumTracker.Increment(1)
 		m.progress.Log("✅  《%s》", album.Name)
+		tracker.Increment(1)
 	}
 
+	time.Sleep(500 * time.Millisecond)
+	tracker.MarkAsDone()
 	return nil
 }
 
@@ -130,8 +135,9 @@ func (m *MonsterSiren) downloadSongsTaskWrapper(song *Song, trackNo int, path st
 		}
 
 		ext := filepath.Ext(song.SourceUrl)
-		songName := fmt.Sprintf("%02d.%s%s", trackNo, song.FilenamifyName(), ext)
-		lyricName := fmt.Sprintf("%02d.%s.lrc", trackNo, song.FilenamifyName())
+		name := song.FilenamifyName()
+		songName := fmt.Sprintf("%02d.%s%s", trackNo, name, ext)
+		lyricName := fmt.Sprintf("%02d.%s.lrc", trackNo, name)
 		if song.SourceUrl != "" {
 			_ = m.downloadURL(song.SourceUrl, path, songName)
 		}

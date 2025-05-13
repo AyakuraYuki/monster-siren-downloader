@@ -1,6 +1,10 @@
 package monster_siren
 
-import "github.com/flytam/filenamify"
+import (
+	"strings"
+
+	"github.com/flytam/filenamify"
+)
 
 type Song struct {
 	Cid        string   `json:"cid"`
@@ -21,9 +25,9 @@ func (song *Song) FilenamifyName() string {
 	}
 	name, err := filenamify.Filenamify(song.Name, filenamify.Options{Replacement: "_"})
 	if err != nil {
-		return song.Name
+		return strings.TrimSpace(song.Name)
 	}
-	return name
+	return strings.TrimSpace(name)
 }
 
 type Album struct {
@@ -45,9 +49,9 @@ func (album *Album) FilenamifyName() string {
 	}
 	name, err := filenamify.Filenamify(album.Name, filenamify.Options{Replacement: "_"})
 	if err != nil {
-		return album.Name
+		return strings.TrimSpace(album.Name)
 	}
-	return name
+	return strings.TrimSpace(name)
 }
 
 type SongsRsp struct {

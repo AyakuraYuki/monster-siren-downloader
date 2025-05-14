@@ -52,6 +52,7 @@ func (album *Album) FilenamifyName() string {
 	if err != nil {
 		return strings.TrimSpace(album.Name)
 	}
+	name = strings.TrimSpace(name)
 	name = str.ReplaceDotSuffixRune(name)
 	return strings.TrimSpace(name)
 }

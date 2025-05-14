@@ -1,6 +1,7 @@
 package monster_siren
 
 import (
+	"github.com/AyakuraYuki/monster-siren-downloader/internal/str"
 	"strings"
 
 	"github.com/flytam/filenamify"
@@ -51,6 +52,7 @@ func (album *Album) FilenamifyName() string {
 	if err != nil {
 		return strings.TrimSpace(album.Name)
 	}
+	name = str.ReplaceDotSuffixRune(name)
 	return strings.TrimSpace(name)
 }
 

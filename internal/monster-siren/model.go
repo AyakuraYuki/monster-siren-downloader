@@ -1,10 +1,11 @@
 package monster_siren
 
 import (
-	"github.com/AyakuraYuki/monster-siren-downloader/internal/str"
 	"strings"
 
 	"github.com/flytam/filenamify"
+
+	"github.com/AyakuraYuki/monster-siren-downloader/internal/str"
 )
 
 type Song struct {

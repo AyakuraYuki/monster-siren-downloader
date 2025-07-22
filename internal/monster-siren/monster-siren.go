@@ -165,6 +165,28 @@ func (m *MonsterSiren) Albums() (albums []*Album) {
 
 func (m *MonsterSiren) Album(albumID string) *Album {
 	rsp := &AlbumRsp{}
+	path := fmt.Sprintf(`/api/album/%s/data`, albumID)
+
+	reply, err := m.client.R().SetResult(rsp).Get(path)
+	if err != nil {
+		log.Printf("failed to get album: %v", err)
+		return nil
+	}
+	if reply.IsError() {
+		log.Printf("failed to get album: %v", reply.Error())
+		return nil
+	}
+
+	if !rsp.Data.IsExist() {
+		log.Printf("album not found, got this: %s", reply.String())
+		return nil
+	}
+
+	return rsp.Data
+}
+
+func (m *MonsterSiren) AlbumWithSongs(albumID string) *Album {
+	rsp := &AlbumRsp{}
 	path := fmt.Sprintf(`/api/album/%s/detail`, albumID)
 
 	reply, err := m.client.R().SetResult(rsp).Get(path)

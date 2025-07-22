@@ -11,12 +11,13 @@ import (
 type Song struct {
 	Cid        string   `json:"cid"`
 	Name       string   `json:"name"`
-	AlbumCid   string   `json:"albumCid"`
+	AlbumCid   string   `json:"albumCid,omitempty"`
 	SourceUrl  string   `json:"sourceUrl,omitempty"`
 	LyricUrl   string   `json:"lyricUrl,omitempty"`
 	MvUrl      string   `json:"mvUrl,omitempty"`
 	MvCoverUrl string   `json:"mvCoverUrl,omitempty"`
-	Artists    []string `json:"artists"`
+	Artists    []string `json:"artists,omitempty"`
+	Artistes   []string `json:"artistes,omitempty"`
 }
 
 func (song *Song) IsExist() bool { return song != nil && song.Cid != "" }
@@ -37,7 +38,7 @@ type Album struct {
 	Name       string   `json:"name"`
 	Intro      string   `json:"intro,omitempty"`
 	Belong     string   `json:"belong,omitempty"`
-	CoverUrl   string   `json:"coverUrl"`
+	CoverUrl   string   `json:"coverUrl,omitempty"`
 	CoverDeUrl string   `json:"coverDeUrl,omitempty"`
 	Artistes   []string `json:"artistes,omitempty"`
 	Songs      []*Song  `json:"songs,omitempty"`

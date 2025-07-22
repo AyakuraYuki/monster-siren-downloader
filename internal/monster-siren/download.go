@@ -50,7 +50,11 @@ func (m *MonsterSiren) saveInfoFile(album *Album, infoPath string) {
 			continue
 		}
 		builder.WriteString(fmt.Sprintf("- %02d. %s\n", index+1, song.Name))
-		builder.WriteString(fmt.Sprintf("  作者：%s\n", strings.Join(song.Artists, "、")))
+		if len(song.Artists) > 0 {
+			builder.WriteString(fmt.Sprintf("  作者：%s\n", strings.Join(song.Artists, "、")))
+		} else {
+			builder.WriteString(fmt.Sprintf("  作者：%s\n", strings.Join(song.Artistes, "、")))
+		}
 	}
 	saveFile(infoPath, strings.TrimSpace(builder.String()))
 }
@@ -74,7 +78,10 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 	tracker.Start()
 
 	for albumIndex, album := range albums {
-		album = m.Album(album.Cid)
+		backupArtistes := make([]string, len(album.Artistes))
+		copy(backupArtistes, album.Artistes)
+
+		album = m.AlbumWithSongs(album.Cid)
 		if !album.IsExist() {
 			m.progress.Log("cannot get detail of album: [%s] %s", album.Cid, album.Name)
 			tracker.Increment(1)
@@ -83,6 +90,11 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 
 		for index, song := range album.Songs {
 			album.Songs[index] = m.Song(song.Cid)
+		}
+
+		if len(album.Artistes) == 0 {
+			album.Artistes = make([]string, len(backupArtistes))
+			copy(album.Artistes, backupArtistes)
 		}
 
 		m.progress.SetPinnedMessages(fmt.Sprintf(">>> 下载中的专辑：《%s》", album.Name))

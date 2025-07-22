@@ -106,9 +106,7 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 		_ = os.MkdirAll(secondPath, os.ModePerm)
 
 		infoPath := filepath.Join(secondPath, "info.txt")
-		if !ayfile.PathExist(infoPath) {
-			m.saveInfoFile(album, infoPath) // save album info
-		}
+		m.saveInfoFile(album, infoPath) // save album info
 
 		var wg sync.WaitGroup
 		for index, song := range album.Songs {

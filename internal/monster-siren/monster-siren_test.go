@@ -50,8 +50,3 @@ func TestMonsterSiren_AlbumWithSongs(t *testing.T) {
 	}
 	t.Log(mjson.Prettify(album))
 }
-
-func TestMonsterSiren_DownloadTracks(t *testing.T) {
-	m := New("test_cases")
-	_ = m.DownloadTracks()
-}

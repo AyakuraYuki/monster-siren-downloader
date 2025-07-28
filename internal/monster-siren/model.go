@@ -8,6 +8,8 @@ import (
 	"github.com/AyakuraYuki/monster-siren-downloader/internal/str"
 )
 
+const replacement = "_"
+
 type Song struct {
 	Cid        string   `json:"cid"`
 	Name       string   `json:"name"`
@@ -26,10 +28,7 @@ func (song *Song) FilenamifyName() string {
 	if !song.IsExist() {
 		return ""
 	}
-	name, err := filenamify.Filenamify(song.Name, filenamify.Options{Replacement: "_"})
-	if err != nil {
-		return strings.TrimSpace(song.Name)
-	}
+	name, _ := filenamify.Filenamify(song.Name, filenamify.Options{Replacement: replacement})
 	return strings.TrimSpace(name)
 }
 
@@ -50,10 +49,7 @@ func (album *Album) FilenamifyName() string {
 	if !album.IsExist() {
 		return ""
 	}
-	name, err := filenamify.Filenamify(album.Name, filenamify.Options{Replacement: "_"})
-	if err != nil {
-		return strings.TrimSpace(album.Name)
-	}
+	name, _ := filenamify.Filenamify(album.Name, filenamify.Options{Replacement: replacement})
 	name = strings.TrimSpace(name)
 	name = str.ReplaceDotSuffixRune(name)
 	return strings.TrimSpace(name)

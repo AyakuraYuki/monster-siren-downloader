@@ -94,115 +94,83 @@ func (m *MonsterSiren) antsPanicHandler(_ interface{}) {
 // ----------------------------------------------------------------------------------------------------
 
 func (m *MonsterSiren) Songs() (songs []*Song, autoplay string) {
-	songs = make([]*Song, 0)
-	autoplay = ""
-
+	songs, autoplay = make([]*Song, 0), ""
 	rsp := &SongsRsp{}
-
-	reply, err := m.client.R().SetResult(rsp).Get(`/api/songs`)
+	response, err := m.client.R().SetResult(rsp).Get(`/api/songs`)
 	if err != nil {
 		log.Printf("failed to get song list: %v", err)
 		return
 	}
-	if reply.IsError() {
-		log.Printf("failed to get song list: %v", reply.Error())
+	if response.IsError() {
+		log.Printf("failed to get song list: %v", response.Error())
 		return
 	}
-
 	if rsp.Data == nil {
-		log.Printf("no song list found, got this: %s", reply.String())
+		log.Printf("no song list found, got this: %s", response.String())
 		return
 	}
-
-	songs = rsp.Data.List
-	autoplay = rsp.Data.Autoplay
+	songs, autoplay = rsp.Data.List, rsp.Data.Autoplay
 	return
 }
 
 func (m *MonsterSiren) Song(songID string) *Song {
 	rsp := &SongRsp{}
-	path := fmt.Sprintf(`/api/song/%s`, songID)
-
-	reply, err := m.client.R().SetResult(rsp).Get(path)
+	response, err := m.client.R().SetResult(rsp).Get(fmt.Sprintf(`/api/song/%s`, songID))
 	if err != nil {
 		log.Printf("failed to get song: %v", err)
 		return nil
 	}
-	if reply.IsError() {
-		log.Printf("failed to get song: %v", reply.Error())
+	if response.IsError() {
+		log.Printf("failed to get song: %v", response.Error())
 		return nil
 	}
-
-	if !rsp.Data.IsExist() {
-		log.Printf("song not found, got this: %s", reply.String())
-		return nil
-	}
-
 	return rsp.Data
 }
 
 func (m *MonsterSiren) Albums() (albums []*Album) {
 	albums = make([]*Album, 0)
-
 	rsp := &AlbumsRsp{}
-
-	reply, err := m.client.R().SetResult(rsp).Get(`/api/albums`)
+	response, err := m.client.R().SetResult(rsp).Get(`/api/albums`)
 	if err != nil {
 		log.Printf("failed to get album list: %v", err)
 		return
 	}
-	if reply.IsError() {
-		log.Printf("failed to get album list: %v", reply.Error())
+	if response.IsError() {
+		log.Printf("failed to get album list: %v", response.Error())
 		return
 	}
-
 	if len(rsp.Data) > 0 {
 		albums = rsp.Data
 	}
-
 	return albums
 }
 
 func (m *MonsterSiren) Album(albumID string) *Album {
 	rsp := &AlbumRsp{}
 	path := fmt.Sprintf(`/api/album/%s/data`, albumID)
-
-	reply, err := m.client.R().SetResult(rsp).Get(path)
+	response, err := m.client.R().SetResult(rsp).Get(path)
 	if err != nil {
 		log.Printf("failed to get album: %v", err)
 		return nil
 	}
-	if reply.IsError() {
-		log.Printf("failed to get album: %v", reply.Error())
+	if response.IsError() {
+		log.Printf("failed to get album: %v", response.Error())
 		return nil
 	}
-
-	if !rsp.Data.IsExist() {
-		log.Printf("album not found, got this: %s", reply.String())
-		return nil
-	}
-
 	return rsp.Data
 }
 
 func (m *MonsterSiren) AlbumWithSongs(albumID string) *Album {
 	rsp := &AlbumRsp{}
 	path := fmt.Sprintf(`/api/album/%s/detail`, albumID)
-
-	reply, err := m.client.R().SetResult(rsp).Get(path)
+	response, err := m.client.R().SetResult(rsp).Get(path)
 	if err != nil {
 		log.Printf("failed to get album: %v", err)
 		return nil
 	}
-	if reply.IsError() {
-		log.Printf("failed to get album: %v", reply.Error())
+	if response.IsError() {
+		log.Printf("failed to get album: %v", response.Error())
 		return nil
 	}
-
-	if !rsp.Data.IsExist() {
-		log.Printf("album not found, got this: %s", reply.String())
-		return nil
-	}
-
 	return rsp.Data
 }

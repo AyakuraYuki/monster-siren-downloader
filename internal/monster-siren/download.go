@@ -15,25 +15,26 @@ import (
 
 const saveTo = `./monster-siren`
 
-func (m *MonsterSiren) downloadURL(mURL, path, name string) (err error) {
-	absPath := filepath.Join(path, name)
-	if ayfile.PathExist(absPath) {
+func (m *MonsterSiren) downloadURL(link, saveDir, filename string) (err error) {
+	dst := filepath.Join(saveDir, filename)
+	if ayfile.PathExist(dst) {
 		return nil // 跳过已下载的文件
 	}
 
-	tmpPath := absPath + ".tmp"
-	_ = os.Remove(tmpPath)
-	reply, err := m.client.R().SetOutput(tmpPath).Get(mURL)
+	tempDst := dst + ".tmp"
+	_ = os.Remove(tempDst)
+
+	response, err := m.client.R().SetOutput(tempDst).Get(link)
 	if err != nil {
-		m.progress.Log("failed to download url %q, err: %v", mURL, err)
+		m.progress.Log("failed to download url %q, err: %v", link, err)
 		return err
 	}
-	if reply.IsError() {
-		m.progress.Log("failed to download url %q, err: %v", mURL, reply.Error())
-		return fmt.Errorf("reply error: (code %d) %v", reply.StatusCode(), reply.Error())
+	if response.IsError() {
+		m.progress.Log("failed to download url %q, err: %v", link, response.Error())
+		return fmt.Errorf("download error: (code %d) %v", response.StatusCode(), response.Error())
 	}
-	_ = os.Rename(tmpPath, absPath)
 
+	_ = os.Rename(tempDst, dst)
 	return nil
 }
 
@@ -98,16 +99,18 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 		}
 
 		m.progress.SetPinnedMessages(fmt.Sprintf(">>> 下载中的专辑：《%s》", album.Name))
-		songTracker := m.newTracker(fmt.Sprintf("下载专辑：《%s》（曲数：%d）", album.Name, len(album.Songs)), int64(len(album.Songs)))
-		songTracker.Start()
 
 		albumNo := len(albums) - albumIndex
 		secondPath := filepath.Join(firstPath, fmt.Sprintf("%03d - %s", albumNo, album.FilenamifyName()))
 		_ = os.MkdirAll(secondPath, os.ModePerm)
 
-		infoPath := filepath.Join(secondPath, "info.txt")
-		m.saveInfoFile(album, infoPath) // save album info
+		// save album info
+		if infoPath := filepath.Join(secondPath, "info.txt"); !ayfile.PathExist(infoPath) {
+			m.saveInfoFile(album, infoPath)
+		}
 
+		songTracker := m.newTracker(fmt.Sprintf("下载专辑：《%s》（曲数：%d）", album.Name, len(album.Songs)), int64(len(album.Songs)))
+		songTracker.Start()
 		var wg sync.WaitGroup
 		for index, song := range album.Songs {
 			trackNo := index + 1
@@ -140,10 +143,12 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 
 func (m *MonsterSiren) downloadSongsTaskWrapper(song *Song, trackNo int, path string, tracker *progress.Tracker, wg *sync.WaitGroup) func() {
 	return func() {
-		defer wg.Done()
+		defer func() {
+			tracker.Increment(1)
+			wg.Done()
+		}()
 
 		if !song.IsExist() {
-			tracker.Increment(1)
 			return
 		}
 
@@ -157,24 +162,11 @@ func (m *MonsterSiren) downloadSongsTaskWrapper(song *Song, trackNo int, path st
 		if song.LyricUrl != "" {
 			_ = m.downloadURL(song.LyricUrl, path, lyricName)
 		}
-
-		tracker.Increment(1)
 	}
 }
 
 func saveFile(path, text string) {
 	fh, err := os.Create(path)
-	if err != nil {
-		return
-	}
-	defer func(fh *os.File) { _ = fh.Close() }(fh)
-	buf := bufio.NewWriter(fh)
-	_, _ = fmt.Fprintln(buf, text)
-	_ = buf.Flush()
-}
-
-func saveFileAppend(path, text string) {
-	fh, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return
 	}

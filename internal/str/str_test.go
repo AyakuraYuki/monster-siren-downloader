@@ -1,6 +1,8 @@
 package str
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestReplaceDotSuffixRune(t *testing.T) {
 	tests := []struct {

@@ -41,13 +41,12 @@ func New(versions ...string) *MonsterSiren {
 			"User-Agent":      fmt.Sprintf("Go/%s monster-siren-downloader/%s", runtime.Version(), version),
 		})
 
-	pw := progress.NewWriter()
-	pw.SetAutoStop(false)
-	pw.SetMessageLength(120)
-	pw.SetStyle(progress.StyleBlocks)
-	pw.SetUpdateFrequency(100 * time.Millisecond)
-	pw.ShowTime(false)
-	pw.Style().Colors = progress.StyleColors{
+	progressWriter := progress.NewWriter()
+	progressWriter.SetAutoStop(false)
+	progressWriter.SetMessageLength(120)
+	progressWriter.SetStyle(progress.StyleBlocks)
+	progressWriter.SetUpdateFrequency(100 * time.Millisecond)
+	progressWriter.Style().Colors = progress.StyleColors{
 		Message: text.Colors{text.FgWhite},
 		Error:   text.Colors{text.FgRed},
 		Percent: text.Colors{text.FgHiGreen},
@@ -58,18 +57,19 @@ func New(versions ...string) *MonsterSiren {
 		Value:   text.Colors{text.FgCyan},
 		Speed:   text.Colors{text.FgMagenta},
 	}
-	pw.Style().Options.DoneString = "下载完毕！"
+	progressWriter.Style().Options.DoneString = "下载完毕！"
+	progressWriter.Style().Visibility.Time = false
 
 	instance := &MonsterSiren{
 		client:   client,
-		progress: pw,
+		progress: progressWriter,
 	}
 
-	p, err := ants.NewPool(5, ants.WithPanicHandler(instance.antsPanicHandler))
+	pool, err := ants.NewPool(5, ants.WithPanicHandler(instance.antsPanicHandler))
 	if err != nil {
 		panic(err)
 	}
-	instance.pool = p
+	instance.pool = pool
 
 	return instance
 }

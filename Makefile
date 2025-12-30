@@ -1,40 +1,48 @@
 NAME=msr-downloader
-BASE_BUILD_DIR=build
-BUILD_NAME=$(GOOS)-$(GOARCH)$(GOARM)
-BUILD_DIR=$(BASE_BUILD_DIR)/$(BUILD_NAME)
+OUT_DIR=build  # root directory for build outputs
+TARGET=$(GOOS)-$(GOARCH)$(GOARM)  # target platform identifier
+BIN_DIR=$(OUT_DIR)/$(TARGET)  # Platform-specific binary directory
 VERSION?=dev
 
 ifeq ($(GOOS),windows)
-  ext=.exe
-  archiveCmd=zip -9 -r $(NAME)-$(BUILD_NAME)-$(VERSION).zip $(BUILD_NAME)
+  EXT=.exe
+  PACK_CMD=zip -9 -r $(NAME)-$(TARGET)-$(VERSION).zip $(TARGET)
 else
-  ext=
-  archiveCmd=tar czpvf $(NAME)-$(BUILD_NAME)-$(VERSION).tar.gz $(BUILD_NAME)
+  EXT=
+  PACK_CMD=tar czpvf $(NAME)-$(TARGET)-$(VERSION).tar.gz $(TARGET)
 endif
 
-build: clean test
-	go build -o $(BUILD_DIR)/$(NAME)$(ext)
+define check_env
+	@ if [ "$(GOOS)" = "" ]; then echo " <- Env variable GOOS not set"; exit 1; fi
+	@ if [ "$(GOARCH)" = "" ]; then echo " <- Env variable GOARCH not set"; exit 1; fi
+endef
 
-test:
-	go test -race -v -bench=. ./...
+# Self-Documented Makefile see https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
+.DEFAULT_GOAL := help
+.PHONY: help
+help:
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-release: check-env-release
-	mkdir -p $(BUILD_DIR)
-	cp LICENSE $(BUILD_DIR)/
-	cp README.md $(BUILD_DIR)/
-	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(NAME)$(ext)
-	cd $(BASE_BUILD_DIR) ; $(archiveCmd)
 
-check-env-release:
-	@ if [ "$(GOOS)" = "" ]; then \
-		echo "Env variable GOOS not set"; \
-		exit 1; \
-   	fi
-	@ if [ "$(GOARCH)" = "" ]; then \
-		echo "Env variable GOARCH not set"; \
-		exit 1; \
-   	fi
+.PHONY: build
+build: clean test ## Compile the package targeted to current platform; the package will be cleaned and tested before compilation.
+	@go build -o $(BIN_DIR)/$(NAME)$(EXT)
 
-clean:
-	go clean
-	rm -vrf $(BASE_BUILD_DIR)
+.PHONY: release
+release: ## release builds releasable artifacts. You need to specify two environment variables, GOOS and GOARCH, to set the target platform for the binaries.
+	@$(call check_env)
+	@mkdir -p $(BIN_DIR)
+	@cp LICENSE $(BIN_DIR)/
+	@cp README.md $(BIN_DIR)/
+	@CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BIN_DIR)/$(NAME)$(EXT)
+	@cd $(OUT_DIR) ; $(PACK_CMD)
+
+.PHONY: test
+test: ## Test the go package if it has the test cases.
+	@go test -race -v -bench=. ./...
+
+.PHONY: clean
+clean: ## Remove build caches, temp files, and the previous build outputs.
+	@go clean
+	@rm -vrf $(OUT_DIR)
+	@echo " <- done"

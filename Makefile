@@ -1,7 +1,10 @@
 NAME=msr-downloader
-OUT_DIR=build  # root directory for build outputs
-TARGET=$(GOOS)-$(GOARCH)$(GOARM)  # target platform identifier
-BIN_DIR=$(OUT_DIR)/$(TARGET)  # Platform-specific binary directory
+# root directory for build outputs
+OUT_DIR=build
+# target platform identifier
+TARGET=$(GOOS)-$(GOARCH)$(GOARM)
+# Platform-specific binary directory
+BIN_DIR=$(OUT_DIR)/$(TARGET)
 VERSION?=dev
 
 ifeq ($(GOOS),windows)

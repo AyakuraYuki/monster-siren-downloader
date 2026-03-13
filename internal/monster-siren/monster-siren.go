@@ -2,10 +2,11 @@ package monster_siren
 
 import (
 	"fmt"
-	"log"
 	"runtime"
 	"strings"
 	"time"
+
+	msrClient "github.com/AyakuraYuki/monster-siren-api-go/client"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/jedib0t/go-pretty/v6/progress"
@@ -13,14 +14,17 @@ import (
 	"github.com/panjf2000/ants/v2"
 )
 
-const baseURL = `https://monster-siren.hypergryph.com`
-
 var version string
 
+const (
+	saveTo = "./monster-siren"
+)
+
 type MonsterSiren struct {
-	client   *resty.Client
-	pool     *ants.Pool
-	progress progress.Writer
+	client     *msrClient.Client
+	downloader *resty.Client
+	pool       *ants.Pool
+	progress   progress.Writer
 }
 
 func New(versions ...string) *MonsterSiren {
@@ -30,8 +34,7 @@ func New(versions ...string) *MonsterSiren {
 		version = "build-" + strings.ReplaceAll(time.Now().Format("20060102150405.000000"), ".", "_")
 	}
 
-	client := resty.New().
-		SetBaseURL(baseURL).
+	downloader := resty.New().
 		SetTimeout(20 * time.Minute).
 		SetRetryCount(3).
 		SetHeaders(map[string]string{
@@ -61,8 +64,9 @@ func New(versions ...string) *MonsterSiren {
 	progressWriter.Style().Visibility.Time = false
 
 	instance := &MonsterSiren{
-		client:   client,
-		progress: progressWriter,
+		client:     msrClient.NewClient(),
+		downloader: downloader,
+		progress:   progressWriter,
 	}
 
 	pool, err := ants.NewPool(5, ants.WithPanicHandler(instance.antsPanicHandler))
@@ -85,92 +89,8 @@ func (m *MonsterSiren) newTracker(message string, total int64) (tracker *progres
 	return tracker
 }
 
-func (m *MonsterSiren) antsPanicHandler(_ interface{}) {
+func (m *MonsterSiren) antsPanicHandler(_ any) {
 	buf := make([]byte, 4<<10) // 4K
 	buf = buf[:runtime.Stack(buf, false)]
 	m.progress.Log("panic: %s", string(buf))
-}
-
-// ----------------------------------------------------------------------------------------------------
-
-func (m *MonsterSiren) Songs() (songs []*Song, autoplay string) {
-	songs, autoplay = make([]*Song, 0), ""
-	rsp := &SongsRsp{}
-	response, err := m.client.R().SetResult(rsp).Get(`/api/songs`)
-	if err != nil {
-		log.Printf("failed to get song list: %v", err)
-		return
-	}
-	if response.IsError() {
-		log.Printf("failed to get song list: %v", response.Error())
-		return
-	}
-	if rsp.Data == nil {
-		log.Printf("no song list found, got this: %s", response.String())
-		return
-	}
-	songs, autoplay = rsp.Data.List, rsp.Data.Autoplay
-	return
-}
-
-func (m *MonsterSiren) Song(songID string) *Song {
-	rsp := &SongRsp{}
-	response, err := m.client.R().SetResult(rsp).Get(fmt.Sprintf(`/api/song/%s`, songID))
-	if err != nil {
-		log.Printf("failed to get song: %v", err)
-		return nil
-	}
-	if response.IsError() {
-		log.Printf("failed to get song: %v", response.Error())
-		return nil
-	}
-	return rsp.Data
-}
-
-func (m *MonsterSiren) Albums() (albums []*Album) {
-	albums = make([]*Album, 0)
-	rsp := &AlbumsRsp{}
-	response, err := m.client.R().SetResult(rsp).Get(`/api/albums`)
-	if err != nil {
-		log.Printf("failed to get album list: %v", err)
-		return
-	}
-	if response.IsError() {
-		log.Printf("failed to get album list: %v", response.Error())
-		return
-	}
-	if len(rsp.Data) > 0 {
-		albums = rsp.Data
-	}
-	return albums
-}
-
-func (m *MonsterSiren) Album(albumID string) *Album {
-	rsp := &AlbumRsp{}
-	path := fmt.Sprintf(`/api/album/%s/data`, albumID)
-	response, err := m.client.R().SetResult(rsp).Get(path)
-	if err != nil {
-		log.Printf("failed to get album: %v", err)
-		return nil
-	}
-	if response.IsError() {
-		log.Printf("failed to get album: %v", response.Error())
-		return nil
-	}
-	return rsp.Data
-}
-
-func (m *MonsterSiren) AlbumWithSongs(albumID string) *Album {
-	rsp := &AlbumRsp{}
-	path := fmt.Sprintf(`/api/album/%s/detail`, albumID)
-	response, err := m.client.R().SetResult(rsp).Get(path)
-	if err != nil {
-		log.Printf("failed to get album: %v", err)
-		return nil
-	}
-	if response.IsError() {
-		log.Printf("failed to get album: %v", response.Error())
-		return nil
-	}
-	return rsp.Data
 }

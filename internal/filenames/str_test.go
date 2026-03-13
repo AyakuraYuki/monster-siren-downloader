@@ -1,10 +1,10 @@
-package str
+package filenames
 
 import (
 	"testing"
 )
 
-func TestReplaceDotSuffixRune(t *testing.T) {
+func TestReplaceDotSuffix(t *testing.T) {
 	tests := []struct {
 		s    string
 		want string
@@ -14,8 +14,8 @@ func TestReplaceDotSuffixRune(t *testing.T) {
 		{s: "dir.", want: "dir_"},
 	}
 	for _, tt := range tests {
-		if got := ReplaceDotSuffixRune(tt.s); got != tt.want {
-			t.Errorf("ReplaceDotSuffixRune(%q) = %q, want %q", tt.s, got, tt.want)
+		if got := ReplaceDotSuffix(tt.s); got != tt.want {
+			t.Errorf("ReplaceDotSuffix(%q) = %q, want %q", tt.s, got, tt.want)
 		}
 	}
 }

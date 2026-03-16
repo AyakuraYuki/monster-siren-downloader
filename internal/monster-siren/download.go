@@ -27,7 +27,7 @@ func (m *MonsterSiren) Run() (err error) {
 
 	pwd, err := os.Getwd()
 	if err != nil {
-		m.progress.Log("cannot get workdir: %v", err)
+		m.progress.Log("获取目录失败: %v", err)
 		return err
 	}
 
@@ -44,7 +44,7 @@ func (m *MonsterSiren) Run() (err error) {
 
 		album, _ = m.client.AlbumDetail(ctx, album.Cid)
 		if !album.Exists() {
-			m.progress.Log("cannot get detail of album: [%s] %s", album.Cid, album.Name)
+			m.progress.Log("查不到专辑详情: [%s] %s", album.Cid, album.Name)
 			tracker.Increment(1)
 			continue
 		}
@@ -137,11 +137,11 @@ func (m *MonsterSiren) download(link, saveDir, filename string) (err error) {
 
 	response, err := m.downloader.R().SetOutput(tempDst).Get(link)
 	if err != nil {
-		m.progress.Log("failed to download url %q, err: %v", link, err)
+		m.progress.Log("下载失败 (%q)，错误: %v", link, err)
 		return err
 	}
 	if response.IsError() {
-		m.progress.Log("failed to download url %q, err: %v", link, response.Error())
+		m.progress.Log("下载失败 (%q)，错误: %v", link, response.Error())
 		return fmt.Errorf("download error: (code %d) %v", response.StatusCode(), response.Error())
 	}
 

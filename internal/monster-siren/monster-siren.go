@@ -44,29 +44,10 @@ func New(versions ...string) *MonsterSiren {
 			"User-Agent":      fmt.Sprintf("Go/%s monster-siren-downloader/%s", runtime.Version(), version),
 		})
 
-	progressWriter := progress.NewWriter()
-	progressWriter.SetAutoStop(false)
-	progressWriter.SetMessageLength(120)
-	progressWriter.SetStyle(progress.StyleBlocks)
-	progressWriter.SetUpdateFrequency(100 * time.Millisecond)
-	progressWriter.Style().Colors = progress.StyleColors{
-		Message: text.Colors{text.FgWhite},
-		Error:   text.Colors{text.FgRed},
-		Percent: text.Colors{text.FgHiGreen},
-		Pinned:  text.Colors{text.BgHiBlack, text.FgHiWhite},
-		Stats:   text.Colors{text.FgHiBlack},
-		Time:    text.Colors{text.FgGreen},
-		Tracker: text.Colors{text.FgCyan},
-		Value:   text.Colors{text.FgCyan},
-		Speed:   text.Colors{text.FgMagenta},
-	}
-	progressWriter.Style().Options.DoneString = "下载完毕！"
-	progressWriter.Style().Visibility.Time = false
-
 	instance := &MonsterSiren{
 		client:     msrClient.NewClient(),
 		downloader: downloader,
-		progress:   progressWriter,
+		progress:   customizedProgress(),
 	}
 
 	pool, err := ants.NewPool(5, ants.WithPanicHandler(instance.antsPanicHandler))
@@ -93,4 +74,29 @@ func (m *MonsterSiren) antsPanicHandler(_ any) {
 	buf := make([]byte, 4<<10) // 4K
 	buf = buf[:runtime.Stack(buf, false)]
 	m.progress.Log("panic: %s", string(buf))
+}
+
+func customizedProgress() progress.Writer {
+	writer := progress.NewWriter()
+
+	writer.SetAutoStop(false)
+	writer.SetMessageLength(64)
+	writer.SetStyle(progress.StyleBlocks)
+	writer.SetUpdateFrequency(100 * time.Millisecond)
+
+	writer.Style().Colors = progress.StyleColors{
+		Message: text.Colors{text.FgWhite},
+		Error:   text.Colors{text.FgRed},
+		Percent: text.Colors{text.FgHiGreen},
+		Pinned:  text.Colors{text.BgHiBlack, text.FgHiWhite},
+		Stats:   text.Colors{text.FgHiBlack},
+		Time:    text.Colors{text.FgGreen},
+		Tracker: text.Colors{text.FgCyan},
+		Value:   text.Colors{text.FgCyan},
+		Speed:   text.Colors{text.FgMagenta},
+	}
+	writer.Style().Options.DoneString = "下载完毕！"
+	writer.Style().Visibility.Time = false
+
+	return writer
 }

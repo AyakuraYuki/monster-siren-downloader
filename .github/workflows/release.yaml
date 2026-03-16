@@ -44,17 +44,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { goos: windows, goarch: amd64,           os: windows-latest, target: windows_.exe }
-          - { goos: windows, goarch: arm64,           os: windows-latest, target: windows_.exe }
-          - { goos: windows, goarch: "386",           os: windows-latest, target: windows_.exe }
-          - { goos: darwin,  goarch: arm64,           os: macos-latest,   target: macos_aarch64 }
-          - { goos: darwin,  goarch: amd64,           os: macos-latest,   target: macos_x64 }
-          - { goos: linux,   goarch: amd64,           os: ubuntu-latest,  target: linux_amd64 }
-          - { goos: linux,   goarch: arm64,           os: ubuntu-latest,  target: linux_arm64 }
-          - { goos: linux,   goarch: "386",           os: ubuntu-latest,  target: linux_x86 }
-          - { goos: linux,   goarch: arm,   arm: "5", os: ubuntu-latest,  target: linux_arm5 }
-          - { goos: linux,   goarch: arm,   arm: "6", os: ubuntu-latest,  target: linux_arm6 }
-          - { goos: linux,   goarch: arm,   arm: "7", os: ubuntu-latest,  target: linux_arm7 }
+          - { goos: windows, goarch: amd64,           os: ubuntu-latest, target: windows_.exe }
+          - { goos: windows, goarch: arm64,           os: ubuntu-latest, target: windows_.exe }
+          - { goos: windows, goarch: "386",           os: ubuntu-latest, target: windows_.exe }
+          - { goos: darwin,  goarch: arm64,           os: macos-latest,  target: macos_aarch64 }
+          - { goos: darwin,  goarch: amd64,           os: macos-latest,  target: macos_x64 }
+          - { goos: linux,   goarch: amd64,           os: ubuntu-latest, target: linux_amd64 }
+          - { goos: linux,   goarch: arm64,           os: ubuntu-latest, target: linux_arm64 }
+          - { goos: linux,   goarch: "386",           os: ubuntu-latest, target: linux_x86 }
+          - { goos: linux,   goarch: arm,   arm: "5", os: ubuntu-latest, target: linux_arm5 }
+          - { goos: linux,   goarch: arm,   arm: "6", os: ubuntu-latest, target: linux_arm6 }
+          - { goos: linux,   goarch: arm,   arm: "7", os: ubuntu-latest, target: linux_arm7 }
 
     steps:
       - uses: actions/checkout@v6

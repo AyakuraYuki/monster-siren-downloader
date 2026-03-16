@@ -1,18 +1,13 @@
 NAME=msr-downloader
-# root directory for build outputs
 OUT_DIR=build
-# target platform identifier
 TARGET=$(GOOS)-$(GOARCH)$(GOARM)
-# Platform-specific binary directory
 BIN_DIR=$(OUT_DIR)/$(TARGET)
 VERSION?=dev
 
 ifeq ($(GOOS),windows)
   EXT=.exe
-  PACK_CMD=zip -9 -r $(NAME)-$(TARGET)-$(VERSION).zip $(TARGET)
 else
   EXT=
-  PACK_CMD=tar czpvf $(NAME)-$(TARGET)-$(VERSION).tar.gz $(TARGET)
 endif
 
 define check_env
@@ -30,15 +25,6 @@ help:
 .PHONY: build
 build: clean test ## Compile the package targeted to current platform; the package will be cleaned and tested before compilation.
 	@go build -o $(BIN_DIR)/$(NAME)$(EXT)
-
-.PHONY: release
-release: ## release builds releasable artifacts. You need to specify two environment variables, GOOS and GOARCH, to set the target platform for the binaries.
-	@$(call check_env)
-	@mkdir -p $(BIN_DIR)
-	@cp LICENSE $(BIN_DIR)/
-	@cp README.md $(BIN_DIR)/
-	@CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BIN_DIR)/$(NAME)$(EXT)
-	@cd $(OUT_DIR) ; $(PACK_CMD)
 
 .PHONY: test
 test: ## Test the go package if it has the test cases.

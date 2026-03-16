@@ -35,25 +35,26 @@ jobs:
 
   build:
     needs: check
+    runs-on: ${{ matrix.os }}
     env:
       CGO_ENABLED: "0"
       VERSION: ${{ github.ref_name }}
+
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - { goos: windows, goarch: amd64,           os: windows-latest }
-          - { goos: windows, goarch: arm64,           os: windows-latest }
-          - { goos: windows, goarch: "386",           os: windows-latest }
-          - { goos: darwin,  goarch: arm64,           os: macos-latest }
-          - { goos: darwin,  goarch: amd64,           os: macos-latest }
-          - { goos: linux,   goarch: amd64,           os: ubuntu-latest }
-          - { goos: linux,   goarch: arm64,           os: ubuntu-latest }
-          - { goos: linux,   goarch: "386",           os: ubuntu-latest }
-          - { goos: linux,   goarch: arm,   arm: "5", os: ubuntu-latest }
-          - { goos: linux,   goarch: arm,   arm: "6", os: ubuntu-latest }
-          - { goos: linux,   goarch: arm,   arm: "7", os: ubuntu-latest }
-
-    runs-on: ${{ matrix.os }}
+          - { goos: windows, goarch: amd64,           os: windows-latest, target: windows_.exe }
+          - { goos: windows, goarch: arm64,           os: windows-latest, target: windows_.exe }
+          - { goos: windows, goarch: "386",           os: windows-latest, target: windows_.exe }
+          - { goos: darwin,  goarch: arm64,           os: macos-latest,   target: macos_aarch64 }
+          - { goos: darwin,  goarch: amd64,           os: macos-latest,   target: macos_x64 }
+          - { goos: linux,   goarch: amd64,           os: ubuntu-latest,  target: linux_amd64 }
+          - { goos: linux,   goarch: arm64,           os: ubuntu-latest,  target: linux_arm64 }
+          - { goos: linux,   goarch: "386",           os: ubuntu-latest,  target: linux_x86 }
+          - { goos: linux,   goarch: arm,   arm: "5", os: ubuntu-latest,  target: linux_arm5 }
+          - { goos: linux,   goarch: arm,   arm: "6", os: ubuntu-latest,  target: linux_arm6 }
+          - { goos: linux,   goarch: arm,   arm: "7", os: ubuntu-latest,  target: linux_arm7 }
 
     steps:
       - uses: actions/checkout@v6
@@ -62,24 +63,27 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - run: mkdir -p build
+
       - if: ${{ matrix.goos != 'linux' }}
-        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} make release
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-s -w -X main.version=${VERSION}" -o build/msr-downloader-${{ matrix.target }}
       - if: ${{ matrix.goos == 'linux' && matrix.goarch != 'arm' }}
-        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} make release
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-s -w -X main.version=${VERSION}" -o build/msr-downloader-${{ matrix.target }}
       - if: ${{ matrix.goos == 'linux' && matrix.goarch == 'arm' }}
-        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.arm }} make release
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.arm }} go build -ldflags "-s -w -X main.version=${VERSION}" -o build/msr-downloader-${{ matrix.target }}
+
+      - if: ${{ matrix.goos != 'windows' }}
+        run: chmod +x build/msr-downloader-${{ matrix.target }}
 
       - uses: actions/upload-artifact@v6
         with:
-          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
-          path: build/msr-downloader-*
+          name: build-${{ matrix.target }}
+          path: build/msr-downloader-${{ matrix.target }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-
       - uses: actions/download-artifact@v7
         with:
           path: build

@@ -33,3 +33,34 @@ Go to [Release](https://github.com/AyakuraYuki/monster-siren-downloader/releases
 - Linux/Unix/macOS: Open a terminal in the executable's directory and run: `./msr-downloader`
 
 The music will be saved in a `monster-siren` folder within your current working directory.
+
+### macOS 用户 / To macOS users
+
+这是一个开源项目，我没有从其中获得任何收益，所以我没有付费成为 Apple Developer，并对编译好的 macOS 可执行程序进行公证和签名。
+
+我可以保证这个程序没有做任何多余的事，欢迎对代码进行审查。
+
+您可以在第一次运行程序后，前往 [系统设置 - 隐私与安全性 - 安全性] 下面手动允许程序运行。
+
+或者，您也可以使用下面的命令允许程序运行：
+
+```shell
+# 前往 msr-downloader 所在的目录
+sudo xattr -r -d com.apple.quarantine msr-downloader
+```
+
+---
+
+This is an open-source project, and I have not received any financial benefit from it.
+Therefore, I have not paid to become an Apple Developer and have not notarized and signed the compiled macOS executable.
+
+I can assure you that the program does nothing unnecessary, and you are welcome to review the code.
+
+After the first run, you can manually allow the program to run by going to [System Settings - Privacy & Security - Security].
+
+Alternatively, you can use the following command to allow the program to run:
+
+```shell
+# Navigate to the directory containing msr-downloader
+sudo xattr -r -d com.apple.quarantine msr-downloader
+```

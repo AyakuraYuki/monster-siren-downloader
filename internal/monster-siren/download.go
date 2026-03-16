@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -35,7 +36,7 @@ func (m *MonsterSiren) Run() (err error) {
 	_ = os.MkdirAll(firstPath, os.ModePerm)
 
 	albums, _ := m.client.Albums(ctx)
-	tracker := m.newTracker(fmt.Sprintf("下载塞壬唱片曲库，专辑数：%d", len(albums)), int64(len(albums)))
+	tracker := m.newTracker(fmt.Sprintf("下载塞壬唱片曲库，专辑数：%d", len(albums)), int64(len(albums)), progress.UnitsDefault)
 	tracker.Start()
 
 	for index, album := range albums {
@@ -71,7 +72,7 @@ func (m *MonsterSiren) Run() (err error) {
 			m.saveAlbumInfo(album, infoPath)
 		}
 
-		songTracker := m.newTracker(fmt.Sprintf("下载专辑：《%s》（曲数：%d）", album.Name, len(album.Songs)), int64(len(album.Songs)))
+		songTracker := m.newTracker(fmt.Sprintf("下载专辑：《%s》（曲数：%d）", album.Name, len(album.Songs)), int64(len(album.Songs)), progress.UnitsDefault)
 		songTracker.Start()
 		var wg sync.WaitGroup
 		for i, song := range album.Songs {
@@ -118,7 +119,7 @@ func (m *MonsterSiren) newDownloadTask(song *msrModel.Song, trackNo int, path st
 		songName := fmt.Sprintf("%02d.%s%s", trackNo, name, ext)
 		lyricName := fmt.Sprintf("%02d.%s.lrc", trackNo, name)
 		if song.SourceUrl != "" {
-			_ = m.download(song.SourceUrl, path, songName)
+			_ = m.streamingDownload(song.SourceUrl, path, songName)
 		}
 		if song.LyricUrl != "" {
 			_ = m.download(song.LyricUrl, path, lyricName)
@@ -126,8 +127,8 @@ func (m *MonsterSiren) newDownloadTask(song *msrModel.Song, trackNo int, path st
 	}
 }
 
-func (m *MonsterSiren) download(link, saveDir, filename string) (err error) {
-	dst := filepath.Join(saveDir, filename)
+func (m *MonsterSiren) download(link, dstDir, filename string) (err error) {
+	dst := filepath.Join(dstDir, filename)
 	if ayfile.PathExist(dst) {
 		return nil // 跳过已下载的文件
 	}
@@ -144,6 +145,75 @@ func (m *MonsterSiren) download(link, saveDir, filename string) (err error) {
 		m.progress.Log("下载失败 (%q)，错误: %v", link, response.Error())
 		return fmt.Errorf("download error: (code %d) %v", response.StatusCode(), response.Error())
 	}
+
+	_ = os.Rename(tempDst, dst)
+	return nil
+}
+
+func (m *MonsterSiren) streamingDownload(link, dstDir, filename string) (err error) {
+	dst := filepath.Join(dstDir, filename)
+	if ayfile.PathExist(dst) {
+		return nil // 跳过已下载的文件
+	}
+
+	// 1. HEAD 请求获取文件大小
+	head, err := m.downloader.R().Head(link)
+	if err != nil {
+		return fmt.Errorf("fetch file size error: %w", err)
+	}
+	total := head.RawResponse.ContentLength
+
+	// 2. 新建 tracker
+	tracker := m.newTracker(filename, total, progress.UnitsBytes)
+
+	// 3. 下载文件（获取响应体）
+	response, err := m.downloader.R().SetDoNotParseResponse(true).Get(link)
+	if err != nil {
+		tracker.MarkAsErrored()
+		m.progress.Log("下载失败 (%q)，错误: %v", link, err)
+		return err
+	}
+	defer func(body io.ReadCloser) { _ = body.Close() }(response.RawBody())
+
+	// 3-e. 处理错误响应
+	if response.IsError() {
+		tracker.MarkAsErrored()
+		m.progress.Log("下载失败 (%q)，错误: %v", link, response.Status())
+		return err
+	}
+
+	// 3.2. 修正文件尺寸
+	if total <= 0 {
+		total = response.RawResponse.ContentLength
+		if total > 0 {
+			tracker.UpdateTotal(total)
+		}
+	}
+
+	// 4. 创建临时文件
+	tempDst := dst + ".tmp"
+	_ = os.Remove(tempDst)
+	out, err := os.Create(tempDst)
+	if err != nil {
+		return err
+	}
+	defer func(f *os.File) { _ = f.Close() }(out)
+
+	// 5. 创建下载进度跟踪器
+	wrap := &trackerWrapper{
+		dst:     out,
+		tracker: tracker,
+	}
+
+	// 6. 流式写入
+	if _, err = io.Copy(wrap, response.RawBody()); err != nil {
+		tracker.MarkAsErrored()
+		m.progress.Log("下载失败 (%q)，错误: %v", link, err)
+		return err
+	}
+
+	tracker.MarkAsDone()
+	time.Sleep(300 * time.Millisecond)
 
 	_ = os.Rename(tempDst, dst)
 	return nil

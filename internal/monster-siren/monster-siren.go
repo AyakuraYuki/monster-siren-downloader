@@ -10,7 +10,6 @@ import (
 
 	"github.com/go-resty/resty/v2"
 	"github.com/jedib0t/go-pretty/v6/progress"
-	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -59,44 +58,8 @@ func New(versions ...string) *MonsterSiren {
 	return instance
 }
 
-func (m *MonsterSiren) newTracker(message string, total int64) (tracker *progress.Tracker) {
-	tracker = &progress.Tracker{
-		Message:            message,
-		RemoveOnCompletion: true,
-		Total:              total,
-		Units:              progress.UnitsDefault,
-	}
-	m.progress.AppendTracker(tracker)
-	return tracker
-}
-
 func (m *MonsterSiren) antsPanicHandler(_ any) {
 	buf := make([]byte, 4<<10) // 4K
 	buf = buf[:runtime.Stack(buf, false)]
 	m.progress.Log("panic: %s", string(buf))
-}
-
-func customizedProgress() progress.Writer {
-	writer := progress.NewWriter()
-
-	writer.SetAutoStop(false)
-	writer.SetMessageLength(64)
-	writer.SetStyle(progress.StyleBlocks)
-	writer.SetUpdateFrequency(100 * time.Millisecond)
-
-	writer.Style().Colors = progress.StyleColors{
-		Message: text.Colors{text.FgWhite},
-		Error:   text.Colors{text.FgRed},
-		Percent: text.Colors{text.FgHiGreen},
-		Pinned:  text.Colors{text.BgHiBlack, text.FgHiWhite},
-		Stats:   text.Colors{text.FgHiBlack},
-		Time:    text.Colors{text.FgGreen},
-		Tracker: text.Colors{text.FgCyan},
-		Value:   text.Colors{text.FgCyan},
-		Speed:   text.Colors{text.FgMagenta},
-	}
-	writer.Style().Options.DoneString = "下载完毕！"
-	writer.Style().Visibility.Time = false
-
-	return writer
 }

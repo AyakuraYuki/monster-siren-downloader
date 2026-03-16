@@ -201,8 +201,9 @@ func (m *MonsterSiren) streamingDownload(link, dstDir, filename string) (err err
 
 	// 5. 创建下载进度跟踪器
 	wrap := &trackerWrapper{
-		dst:     out,
-		tracker: tracker,
+		dst:      out,
+		filename: filename,
+		tracker:  tracker,
 	}
 
 	// 6. 流式写入

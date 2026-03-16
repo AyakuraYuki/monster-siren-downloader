@@ -2,6 +2,7 @@ package monster_siren
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -17,7 +18,7 @@ import (
 	"github.com/AyakuraYuki/monster-siren-downloader/internal/filenames"
 )
 
-func (m *MonsterSiren) DownloadTracks() (err error) {
+func (m *MonsterSiren) Run() (err error) {
 	defer m.progress.Stop()
 	defer m.pool.Release()
 	go m.progress.Render()
@@ -67,7 +68,7 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 
 		// save album info
 		if infoPath := filepath.Join(secondPath, "info.txt"); !ayfile.PathExist(infoPath) {
-			m.saveInfoFile(album, infoPath)
+			m.saveAlbumInfo(album, infoPath)
 		}
 
 		songTracker := m.newTracker(fmt.Sprintf("下载专辑：《%s》（曲数：%d）", album.Name, len(album.Songs)), int64(len(album.Songs)))
@@ -76,7 +77,7 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 		for i, song := range album.Songs {
 			trackNo := i + 1
 			wg.Add(1)
-			_ = m.pool.Submit(m.downloadSongsTaskWrapper(song, trackNo, secondPath, songTracker, &wg))
+			_ = m.pool.Submit(m.newDownloadTask(song, trackNo, secondPath, songTracker, &wg))
 		}
 		wg.Wait()
 		songTracker.MarkAsDone()
@@ -84,12 +85,12 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 		if album.CoverUrl != "" {
 			ext := filepath.Ext(album.CoverUrl)
 			m.progress.SetPinnedMessages(fmt.Sprintf(">>> 下载专辑封面：《%s》", album.Name))
-			_ = m.downloadURL(album.CoverUrl, secondPath, fmt.Sprintf("专辑封面%s", ext))
+			_ = m.download(album.CoverUrl, secondPath, fmt.Sprintf("专辑封面%s", ext))
 		}
 		if album.CoverDeUrl != "" {
 			ext := filepath.Ext(album.CoverDeUrl)
 			m.progress.SetPinnedMessages(fmt.Sprintf(">>> 下载封面：《%s》", album.Name))
-			_ = m.downloadURL(album.CoverDeUrl, secondPath, fmt.Sprintf("封面%s", ext))
+			_ = m.download(album.CoverDeUrl, secondPath, fmt.Sprintf("封面%s", ext))
 		}
 
 		m.progress.Log("✅  《%s》", album.Name)
@@ -101,7 +102,31 @@ func (m *MonsterSiren) DownloadTracks() (err error) {
 	return nil
 }
 
-func (m *MonsterSiren) downloadURL(link, saveDir, filename string) (err error) {
+func (m *MonsterSiren) newDownloadTask(song *msrModel.Song, trackNo int, path string, tracker *progress.Tracker, wg *sync.WaitGroup) func() {
+	return func() {
+		defer func() {
+			tracker.Increment(1)
+			wg.Done()
+		}()
+
+		if !song.Exists() {
+			return
+		}
+
+		ext := filepath.Ext(song.SourceUrl)
+		name := filenames.SongName(song.Name)
+		songName := fmt.Sprintf("%02d.%s%s", trackNo, name, ext)
+		lyricName := fmt.Sprintf("%02d.%s.lrc", trackNo, name)
+		if song.SourceUrl != "" {
+			_ = m.download(song.SourceUrl, path, songName)
+		}
+		if song.LyricUrl != "" {
+			_ = m.download(song.LyricUrl, path, lyricName)
+		}
+	}
+}
+
+func (m *MonsterSiren) download(link, saveDir, filename string) (err error) {
 	dst := filepath.Join(saveDir, filename)
 	if ayfile.PathExist(dst) {
 		return nil // 跳过已下载的文件
@@ -124,59 +149,39 @@ func (m *MonsterSiren) downloadURL(link, saveDir, filename string) (err error) {
 	return nil
 }
 
-func (m *MonsterSiren) saveInfoFile(album *msrModel.Album, infoPath string) {
-	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("专辑名称：%s\n", album.Name))
-	builder.WriteString(fmt.Sprintf("专辑属于：%s\n", album.Belong))
-	builder.WriteString(fmt.Sprintf("专辑作者：%s\n", strings.Join(album.Artistes, "、")))
-	builder.WriteString(fmt.Sprintf("专辑介绍：\n%s\n\n", album.Intro))
-	builder.WriteString("歌曲列表：\n")
+func (m *MonsterSiren) saveAlbumInfo(album *msrModel.Album, infoPath string) {
+	var buf bytes.Buffer
+
+	_, _ = fmt.Fprintf(&buf, `专辑名称：%s
+专辑属于：%s
+专辑作者：%s
+专辑介绍：
+%s
+
+歌曲列表：
+`, album.Name, album.Belong, strings.Join(album.Artistes, "、"), album.Intro)
+
 	for i, song := range album.Songs {
 		if !song.Exists() {
-			builder.WriteString(fmt.Sprintf("- %02d. %s\n", i+1, "<unknown: missing data>"))
+			_, _ = fmt.Fprintf(&buf, "- %02d. <unknown song>\n", i+1)
 			continue
 		}
-		builder.WriteString(fmt.Sprintf("- %02d. %s\n", i+1, song.Name))
+
+		_, _ = fmt.Fprintf(&buf, "- %02d. %s\n", i+1, song.Name)
+
 		if len(song.Artists) > 0 {
-			builder.WriteString(fmt.Sprintf("  作者：%s\n", strings.Join(song.Artists, "、")))
+			_, _ = fmt.Fprintf(&buf, "  作者：%s\n", strings.Join(song.Artists, "、"))
 		} else {
-			builder.WriteString(fmt.Sprintf("  作者：%s\n", strings.Join(song.Artistes, "、")))
+			_, _ = fmt.Fprintf(&buf, "  作者：%s\n", strings.Join(song.Artistes, "、"))
 		}
 	}
-	saveFile(infoPath, strings.TrimSpace(builder.String()))
-}
 
-func (m *MonsterSiren) downloadSongsTaskWrapper(song *msrModel.Song, trackNo int, path string, tracker *progress.Tracker, wg *sync.WaitGroup) func() {
-	return func() {
-		defer func() {
-			tracker.Increment(1)
-			wg.Done()
-		}()
-
-		if !song.Exists() {
-			return
-		}
-
-		ext := filepath.Ext(song.SourceUrl)
-		name := filenames.SongName(song.Name)
-		songName := fmt.Sprintf("%02d.%s%s", trackNo, name, ext)
-		lyricName := fmt.Sprintf("%02d.%s.lrc", trackNo, name)
-		if song.SourceUrl != "" {
-			_ = m.downloadURL(song.SourceUrl, path, songName)
-		}
-		if song.LyricUrl != "" {
-			_ = m.downloadURL(song.LyricUrl, path, lyricName)
-		}
-	}
-}
-
-func saveFile(path, text string) {
-	fh, err := os.Create(path)
+	fh, err := os.Create(infoPath)
 	if err != nil {
 		return
 	}
 	defer func(fh *os.File) { _ = fh.Close() }(fh)
-	buf := bufio.NewWriter(fh)
-	_, _ = fmt.Fprintln(buf, text)
-	_ = buf.Flush()
+	fBuf := bufio.NewWriter(fh)
+	_, _ = fmt.Fprintln(fBuf, strings.TrimSpace(buf.String()))
+	_ = fBuf.Flush()
 }

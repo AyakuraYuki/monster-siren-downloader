@@ -5,6 +5,6 @@ import monstersiren "github.com/AyakuraYuki/monster-siren-downloader/internal/mo
 var version string
 
 func main() {
-	lib := monstersiren.New(version)
-	_ = lib.DownloadTracks()
+	cli := monstersiren.New(version)
+	_ = cli.Run()
 }

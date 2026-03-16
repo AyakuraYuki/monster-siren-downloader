@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  pull_request:
 
 permissions:
   contents: write
@@ -44,17 +43,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { goos: windows, goarch: amd64,           os: ubuntu-latest, target: windows_.exe }
-          - { goos: windows, goarch: arm64,           os: ubuntu-latest, target: windows_.exe }
-          - { goos: windows, goarch: "386",           os: ubuntu-latest, target: windows_.exe }
-          - { goos: darwin,  goarch: arm64,           os: macos-latest,  target: macos_aarch64 }
-          - { goos: darwin,  goarch: amd64,           os: macos-latest,  target: macos_x64 }
-          - { goos: linux,   goarch: amd64,           os: ubuntu-latest, target: linux_amd64 }
-          - { goos: linux,   goarch: arm64,           os: ubuntu-latest, target: linux_arm64 }
-          - { goos: linux,   goarch: "386",           os: ubuntu-latest, target: linux_x86 }
-          - { goos: linux,   goarch: arm,   arm: "5", os: ubuntu-latest, target: linux_arm5 }
-          - { goos: linux,   goarch: arm,   arm: "6", os: ubuntu-latest, target: linux_arm6 }
-          - { goos: linux,   goarch: arm,   arm: "7", os: ubuntu-latest, target: linux_arm7 }
+          - { goos: windows, goarch: amd64,           os: ubuntu-latest }
+          - { goos: windows, goarch: arm64,           os: ubuntu-latest }
+          - { goos: windows, goarch: "386",           os: ubuntu-latest }
+          - { goos: darwin,  goarch: arm64,           os: macos-latest }
+          - { goos: darwin,  goarch: amd64,           os: macos-latest }
+          - { goos: linux,   goarch: amd64,           os: ubuntu-latest }
+          - { goos: linux,   goarch: arm64,           os: ubuntu-latest }
+          - { goos: linux,   goarch: "386",           os: ubuntu-latest }
+          - { goos: linux,   goarch: arm,   arm: "5", os: ubuntu-latest }
+          - { goos: linux,   goarch: arm,   arm: "6", os: ubuntu-latest }
+          - { goos: linux,   goarch: arm,   arm: "7", os: ubuntu-latest }
 
     steps:
       - uses: actions/checkout@v6
@@ -66,24 +65,46 @@ jobs:
       - run: mkdir -p build
 
       - if: ${{ matrix.goos != 'linux' }}
-        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-s -w -X main.version=${VERSION}" -o build/msr-downloader-${{ matrix.target }}
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} make release
       - if: ${{ matrix.goos == 'linux' && matrix.goarch != 'arm' }}
-        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -ldflags "-s -w -X main.version=${VERSION}" -o build/msr-downloader-${{ matrix.target }}
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} make release
       - if: ${{ matrix.goos == 'linux' && matrix.goarch == 'arm' }}
-        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.arm }} go build -ldflags "-s -w -X main.version=${VERSION}" -o build/msr-downloader-${{ matrix.target }}
-
-      - if: ${{ matrix.goos != 'windows' }}
-        run: chmod +x build/msr-downloader-${{ matrix.target }}
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} GOARM=${{ matrix.arm }} make release-arm
 
       - uses: actions/upload-artifact@v6
         with:
-          name: build-${{ matrix.target }}
-          path: build/msr-downloader-${{ matrix.target }}
+          name: build-${{ matrix.goos }}_${{ matrix.goarch }}
+          path: build/msr-downloader-*
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+        name: Checkout repository
+
+      - name: Fetch update logs
+        id: fetch_update_logs
+        run: bash ./scripts/extract_update_logs.sh
+        shell: bash
+
+      - name: Set Environment
+        run: echo "BUILD_TIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
+
+      - run: |
+          if [ -z "${UPDATE_LOGS}" ]; then
+            echo "No update logs found, using default message."
+            UPDATE_LOGS="More new features are now supported. Check for detailed changelog soon."
+          else
+            echo "Using found update logs."
+          fi
+          
+          cat > release.txt << EOF
+          ${UPDATE_LOGS}
+          
+          Created at ${{ env.BUILD_TIME }}.
+          EOF
+
       - uses: actions/download-artifact@v7
         with:
           path: build
@@ -94,6 +115,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: "Release ${{ github.ref_name }}"
           draft: false
+          body_path: release.txt
           files: build/msr-downloader-*
           prerelease: ${{ contains(github.ref_name, '-rc') }}
 

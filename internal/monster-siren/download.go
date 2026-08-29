@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	ayfile "github.com/AyakuraYuki/go-aybox/file"
+	ayfile "github.com/AyakuraYuki/go-aybox/files"
 	msrModel "github.com/AyakuraYuki/monster-siren-api-go/model"
 	"github.com/jedib0t/go-pretty/v6/progress"
 
